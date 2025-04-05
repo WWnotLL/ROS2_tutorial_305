@@ -20,7 +20,7 @@
 |10|Кнопка/выключатель/тумблер|__[GSMIN KCD11 ON-OFF 3А 250В AC 2pin (15x10)](https://www.ozon.ru/product/tumbler-vyklyuchatel-gsmin-kcd11-on-off-3a-250v-ac-2pin-15x10-krasnyy-953681572/?at=nRtr9g1vEs46WvovfDx6p83hqGJD4OIon5B82TAGNE4M&keywords=тумблер+выключатель)__|91|
 |11|Плата|__[Arduino Nano](https://www.ozon.ru/product/arduino-nano-v-3-0-mini-usb-atmega328p-ft232-zapayana-grebenka-arduino-1401642659/?at=ywtAOKQZ1FkKDqrXFYXrDVrT1xvgKoFO2NxloUnNgnLv&keywords=arduino+nano)__|350|
 |12|*Набор проводов для пайки|__[24 AWG](https://www.ozon.ru/product/nabor-provodov-dlya-payki-1538619832/?at=57twk3NXxcPmr31VT8w7vnxfkm6zDVCnGMK4jC8kMXxn&from_sku=1538619390&oos_search=false)__|851|
-|||Итого|21242|
+|||Итого|20661|
 
 *Набор проводов пригодится для других проектов<br>
 P.S. В данной табличке приведены цены в основном с OZON на случай, если Вам захочется максимально быстро получить компоненты и собрать робота. Для удешевления робота можно покупать компоненты на Aliexpress или Avito
