@@ -58,7 +58,8 @@ Docker — это платформа с открытым исходным код
 Установочный файл __[Docker](https://docker.qubitpi.org/desktop/setup/install/windows-install/)__ <br>
 Обратите внимание что при установке необходимо обязательно установить опцию `Use the WSL 2 based engine`. <br>
 После установки Docker необходимо зайти в настройки<br>
- 
+ <br>
+ ![alt text]([https://github.com/WWnotLL/ROS2_tutorial_305/blob/main/изображения%20к%20тексту/Формальная%20схема%20Docker](https://github.com/WWnotLL/ROS2_tutorial_305/blob/main/изображения%20к%20тексту/настройки%20докера.png))
 ` Настройки докера`
 
 И в пункте `Resources` подпункте `WSL integration` проверить что для вашего дистрибутива интеграция включена.
