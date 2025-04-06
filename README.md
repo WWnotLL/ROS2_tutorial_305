@@ -59,7 +59,7 @@ Docker — это платформа с открытым исходным код
 Обратите внимание что при установке необходимо обязательно установить опцию `Use the WSL 2 based engine`. <br>
 После установки Docker необходимо зайти в настройки<br>
  <br>
- ![Настройки докера]([[https://github.com/WWnotLL/ROS2_tutorial_305/blob/main/изображения%20к%20тексту/Формальная%20схема%20Docker](https://github.com/WWnotLL/ROS2_tutorial_305/blob/main/изображения%20к%20тексту/настройки%20докера.png?raw=true)])
+ ![Настройки докера]((https://github.com/WWnotLL/ROS2_tutorial_305/blob/main/изображения%20к%20тексту/настройки%20докера.png?raw=true))
 
  
  <br>
