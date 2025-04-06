@@ -1,5 +1,0 @@
-# Leha's part 
-<h3>
-www
-<h3>
-qqqqq<br>
