@@ -37,7 +37,10 @@ WSL2 - это тип дистрибутива (набора установочн
 `wsl --set-default-version` 2<br> 
 `wsl --list --online`<br> 
 `wsl --install Ubuntu-22.04`<br>
-<code>`wsl --install`<code>
+```
+bash
+wsl --install
+```
 
 В результате на вашей системе будет установлена wsl2. Для более удобной работы с wsl установим программу Windows Terminal
 Программа Windows Terminal устанавливается через Microsoft Store. В строке поиска Windows напишите Microsoft Store и откройте приложение магазина, в поиске магазина напишите Windows Terminal. Первый полученный результат будет нужной программой нажмите на результат поиска и нажмите кнопку Установить.
