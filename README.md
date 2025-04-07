@@ -1,6 +1,6 @@
 # ROS2_tutorial_305
 
-<oembed>https://www.youtube.com/shorts/z_yXPo4au6M<oembed>
+<video>https://www.youtube.com/shorts/z_yXPo4au6M<video>
 
 Друзья, всем привет! В этом файлике мы хотим рассказать о своем опыте разработки на ROS2 на примере нашего проекта.
 
