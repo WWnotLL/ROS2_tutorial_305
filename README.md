@@ -3,6 +3,7 @@
 <video>https://www.youtube.com/shorts/z_yXPo4au6M<video>
 
 Друзья, всем привет! В этом файлике мы хотим рассказать о своем опыте разработки на ROS2 на примере нашего проекта.
+![](https://images.chesscomfiles.com/uploads/v1/images_users/tiny_mce/valdezdanielcaleb/php4d5t8m.gif)
 
 # Оглавление
 - [Компоненты, используемые в проекте](#компоненты-используемые-в-проекте)
