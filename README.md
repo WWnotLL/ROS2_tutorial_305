@@ -1,8 +1,7 @@
 # ROS2_tutorial_305
 
 Друзья, всем привет! В этом файлике мы хотим рассказать о своем опыте разработки на ROS2 на примере нашего проекта.
-[](https://images.chesscomfiles.com/uploads/v1/images_users/tiny_mce/valdezdanielcaleb/php4d5t8m.gif)
-<br>
+
 <a href="url"><img src="https://images.chesscomfiles.com/uploads/v1/images_users/tiny_mce/valdezdanielcaleb/php4d5t8m.gif" align="center" height="250" width="250" ></a>
 
 # Оглавление
