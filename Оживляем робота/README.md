@@ -1,5 +1,7 @@
-## ___MessageFormatter___ 
+## __project.zip__
+__project.zip__ - архив, в котором лежат файлы, необходимые для сборки контейнера __Docker__ и __ROS2-пакеты__
 
+## ___MessageFormatter___ 
 Модуль для Ардуино осуществляющий обработку данных, поступающих от Raspberry PI с примером использования<br>
 ```String createMessage(int a, int b, int c, int d)``` - Формирует строку которую нужно отправлять<br>
 ```bool parseReceivedMessage(const String &msg, int &num1, int &num2)``` - Разбирает полученные строки, в переменных num1, num2 будут распознанные значения<br>
