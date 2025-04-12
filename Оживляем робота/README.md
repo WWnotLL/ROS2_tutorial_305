@@ -1,3 +1,4 @@
+Можете посмотреть [видео](https://www.youtube.com/watch?v=X2vb6u348Lo), где мы тестируем работу Lidar на нашем роботе
 ## __project.zip__
 __project.zip__ - архив, в котором лежат файлы, необходимые для сборки контейнера __Docker__ и __ROS2-пакеты__
 
@@ -40,9 +41,6 @@ bool parseReceivedMessage(const String &msg, int &num1, int &num2) {
 
 #endif // MESSAGE_FORMATTER_H
 ```
-
-
-
 ## encoder_one.ino
 
 Скрипт для работы с 1 энкодером.
