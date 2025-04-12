@@ -1,6 +1,6 @@
 # ROS2_tutorial_305
-![](https://github.com/WWnotLL/ROS2_tutorial_305/blob/main/Визитка%20робота.jpg)
 ![](https://github.com/WWnotLL/ROS2_tutorial_305/blob/main/портрет.jpg)
+![](https://github.com/WWnotLL/ROS2_tutorial_305/blob/main/Визитка%20робота.jpg)
 
 # Оглавление
 - [Компоненты, используемые в проекте](#компоненты-используемые-в-проекте)
