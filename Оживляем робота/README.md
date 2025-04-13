@@ -2,8 +2,8 @@
 ## __project.zip__
 __project.zip__ - архив, в котором лежат файлы, необходимые для сборки контейнера __Docker__ и __ROS2-пакеты__
 
-## box305_ardu_firmware1.1.zip
-__box305_ardu_firmware1.1.zip__ - архив, необходимый для работы с ESP32 и всеми компонентами, управляемыми ей
+## box305_ardu_firmware1.2.zip
+__box305_ardu_firmware1.2.zip__ - архив, необходимый для работы с ESP32 и всеми компонентами, управляемыми ей
 
 ## ___MessageFormatter___ 
 Модуль для Ардуино осуществляющий обработку данных, поступающих от Raspberry PI с примером использования<br>
@@ -55,136 +55,464 @@ bool parseReceivedMessage(const String &msg, int &num1, int &num2) {
 
 #endif // MESSAGE_FORMATTER_H // Конец защиты от повторного включения
 ```
-## encoder_one.ino
+## box305_ardu_firmware1.2.ino
 
 Скрипт для работы с 1 энкодером.
 
 ```c++
-#include <time.h>
+#include <Arduino.h>           // Для ESP32 необходимо подключить заголовочный файл Arduino
+#include "MessageFormatter.h"  // Подключаем формирователь сообщений
 
 // ========================================================
-// Настройка для энкодера левого переднего колеса
+// Установление пинов управления моторами
 // ========================================================
 
-// Определяем пины для каналов A и B энкодера
-const byte ENCODER_PIN_A_LEFTF = 12; // Пин A энкодера (подключён к прерыванию)
-const byte ENCODER_PIN_B_LEFTF = 13; // Пин B энкодера
+const byte MOTOR_LF_PWM = 32;  // PWM пин переднего левого мотора
+const byte MOTOR_LF = 33;      // Направление переднего левого мотора
 
-// volatile переменные, изменяемые в ISR, для корректной работы в многозадачной среде:
-volatile int pulseCount_LEFTF = 0;           // Счётчик импульсов энкодера (начальное значение 0)
-volatile byte lastStateA_LEFTF = LOW;          // Предыдущее состояние пина A
-volatile boolean direction_LEFTF = true;       // Флаг направления: true – вперёд, false – назад
+const byte MOTOR_RF_PWM = 25;  // PWM пин переднего правого мотора
+const byte MOTOR_RF = 26;      // Направление переднего правого мотора
 
-// Временной интервал для основного цикла (в миллисекундах)
-const int CYCLE_TIME = 500; // 500 мс
+const byte MOTOR_LR_PWM = 19;  // PWM пин заднего левого мотора
+const byte MOTOR_LR = 18;      // Направление заднего левого мотора
 
-unsigned long startTime = 0; // Переменная для хранения времени старта
+const byte MOTOR_RR_PWM = 5;  // PWM пин заднего правого мотора
+const byte MOTOR_RR = 17;     // Направление заднего правого мотора
 
-// Прототип функции обработчика прерывания энкодера
-void wheelSpeed_LEFTF();
+// ========================================================
+// Настройка энкодеров для четырёх колёс
+// ENCODER_PIN_A_* - Пин A
+// ENCODER_PIN_B_* - Пин B
+// pulseCount_*    - Счетчик импульсов
+// lastStateA_*    - Последнее состояние канала A
+// direction_*     - Флаг направления: true для прямого, false для обратного
+// ========================================================
+
+// ----- Передний левый энкодер -----
+const byte ENCODER_PIN_A_LEFT_FRONT = 12;
+const byte ENCODER_PIN_B_LEFT_FRONT = 13;
+
+volatile int pulseCount_LEFT_FRONT = 0;
+volatile byte lastStateA_LEFT_FRONT = LOW;
+volatile bool direction_LEFT_FRONT = true;
+
+// ----- Задний левый энкодер -----
+const byte ENCODER_PIN_A_LEFT_REAR = 2;
+const byte ENCODER_PIN_B_LEFT_REAR = 15;
+
+volatile int pulseCount_LEFT_REAR = 0;
+volatile byte lastStateA_LEFT_REAR = LOW;
+volatile bool direction_LEFT_REAR = true;
+
+// ----- Передний правый энкодер -----
+const byte ENCODER_PIN_A_RIGHT_FRONT = 14;
+const byte ENCODER_PIN_B_RIGHT_FRONT = 27;
+
+volatile int pulseCount_RIGHT_FRONT = 0;
+volatile byte lastStateA_RIGHT_FRONT = LOW;
+volatile bool direction_RIGHT_FRONT = true;
+
+// ----- Задний правый энкодер -----
+const byte ENCODER_PIN_A_RIGHT_REAR = 4;
+const byte ENCODER_PIN_B_RIGHT_REAR = 16;
+
+volatile int pulseCount_RIGHT_REAR = 0;
+volatile byte lastStateA_RIGHT_REAR = LOW;
+volatile bool direction_RIGHT_REAR = true;
+
+// Количество импульсов на один оборот колеса
+const int ENCODER_PPR_FRONT = 470;
+const int ENCODER_PPR_REAR = 455;
+
+// Глобальное время последнего измерения
+unsigned long lastTime = 0;
+
+// Предыдущие значения счётчиков энкодеров
+int pulseCountPrev[4] = {0};  
+
+// Период основного цикла отправки данных (мс)
+const unsigned long CYCLE_TIME = 100;
+unsigned long previousMillis = 0;
+
+// PID-коэффициенты [P, I, D] для каждого колеса
+const float coefs[4][3] = {
+    {1.0, 0.1, 0.01},  // LF
+    {1.0, 0.1, 0.01},  // RF
+    {1.0, 0.1, 0.01},  // LR
+    {1.0, 0.1, 0.01}   // RR
+};
+
+// Хранение состояния PID-контроллера
+float previous_error[4] = { 0 };  // Предыдущая ошибка для каждого колеса
+float integral[4] = { 0 };        // Интегральная составляющая для каждого колеса
+
+// --------------------------------------------------------------------
+// Прототипы функций прерываний
+void wheelSpeed_LEFT_FRONT();
+void wheelSpeed_LEFT_REAR();
+void wheelSpeed_RIGHT_FRONT();
+void wheelSpeed_RIGHT_REAR();
 
 void setup() {
-  // Настраиваем пины энкодера как входы
-  pinMode(ENCODER_PIN_A_LEFTF, INPUT);
-  pinMode(ENCODER_PIN_B_LEFTF, INPUT);
+  Serial.begin(115200);  // Инициализация UART
+  while (!Serial);       // Ждём, пока подключится последовательный порт
+  Serial.println("Arduino запущена и готова к работе.");
 
-  // Инициализируем последовательный порт для вывода данных
-  Serial.begin(115200);   // Скорость 115200 бод
+// Настройка пинов управления моторами на выход
+  pinMode(MOTOR_LF, OUTPUT);
+  pinMode(MOTOR_RF, OUTPUT);
+  pinMode(MOTOR_LR, OUTPUT);
+  pinMode(MOTOR_RR, OUTPUT);
+  pinMode(MOTOR_LF_PWM, OUTPUT);
+  pinMode(MOTOR_RF_PWM, OUTPUT);
+  pinMode(MOTOR_LR_PWM, OUTPUT);
+  pinMode(MOTOR_RR_PWM, OUTPUT);
 
-  // Считываем начальное состояние канала A
-  lastStateA_LEFTF = digitalRead(ENCODER_PIN_A_LEFTF);
+  // Настройка энкодеров и прерываний
+  // Левый передний
+  pinMode(ENCODER_PIN_A_LEFT_FRONT, INPUT);
+  pinMode(ENCODER_PIN_B_LEFT_FRONT, INPUT);
+  lastStateA_LEFT_FRONT = digitalRead(ENCODER_PIN_A_LEFT_FRONT);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_PIN_A_LEFT_FRONT), wheelSpeed_LEFT_FRONT, CHANGE);
 
-  // Привязываем функцию обработки прерывания к пину A энкодера
-  // Функция будет вызываться при любом изменении сигнала (CHANGE)
-  attachInterrupt(digitalPinToInterrupt(ENCODER_PIN_A_LEFTF), wheelSpeed_LEFTF, CHANGE);
+  // Левый задний
+  pinMode(ENCODER_PIN_A_LEFT_REAR, INPUT);
+  pinMode(ENCODER_PIN_B_LEFT_REAR, INPUT);
+  lastStateA_LEFT_REAR = digitalRead(ENCODER_PIN_A_LEFT_REAR);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_PIN_A_LEFT_REAR), wheelSpeed_LEFT_REAR, CHANGE);
 
-  // Сохраняем стартовое время
-  startTime = millis();
+  // Правый передний
+  pinMode(ENCODER_PIN_A_RIGHT_FRONT, INPUT);
+  pinMode(ENCODER_PIN_B_RIGHT_FRONT, INPUT);
+  lastStateA_RIGHT_FRONT = digitalRead(ENCODER_PIN_A_RIGHT_FRONT);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_PIN_A_RIGHT_FRONT), wheelSpeed_RIGHT_FRONT, CHANGE);
+
+  // Правый задний
+  pinMode(ENCODER_PIN_A_RIGHT_REAR, INPUT);
+  pinMode(ENCODER_PIN_B_RIGHT_REAR, INPUT);
+  lastStateA_RIGHT_REAR = digitalRead(ENCODER_PIN_A_RIGHT_REAR);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_PIN_A_RIGHT_REAR), wheelSpeed_RIGHT_REAR, CHANGE);
 }
 
 void loop() {
-  // Выводим в Serial Monitor количество импульсов, накопленных за интервал
-  Serial.print("Pulses: ");
-  Serial.println(pulseCount_LEFTF);
 
-  // Пример вычисления частоты обновления (циклов в секунду)
-  float frequency = 1000.0 / CYCLE_TIME;
-  // Если необходим расчёт скорости, можно использовать формулу:
-  // скорость (м/с) = (pulseCount_LEFTF / импульсов_на_оборот) * (2 * PI * радиус_колеса) * frequency;
+  int speedRight = 0, speedLeft = 0;
+  int targetWheelSpeeds[4] = { 0 }
 
-  // Сбрасываем счётчик импульсов для следующего интервала
-  pulseCount_LEFTF = 0;
+  // Получение данных от Python через Serial
+  if (Serial.available() > 0) {
+    String receivedLine = Serial.readStringUntil('\n');
+    if (receivedLine.length() > 0) {
+      if (parseReceivedMessage(receivedLine, speedRight, speedLeft)) {
+        Serial.print("Получено от Python: speedRight = ");
+        Serial.print(speedRight);
+        Serial.print(", speedLeft = ");
+        Serial.println(speedLeft);
 
-  // Задержка для формирования временного окна измерения
-  delay(CYCLE_TIME);
+        // Задание требуемых скоростей для каждого колеса
+        targetWheelSpeeds[0] = speedLeft;
+        targetWheelSpeeds[1] = speedRight;
+        targetWheelSpeeds[2] = speedLeft;
+        targetWheelSpeeds[3] = speedRight;
+
+      } else {
+        Serial.print("Ошибка разбора сообщения: ");
+        Serial.println(receivedLine);
+      }
+    }
+  }
+
+  // Расчёт текущих угловых скоростей колёс
+  float wheelSpeeds[4];
+  calculateWheelSpeeds(wheelSpeeds);
+
+  // Вычисление управляющих воздействий PID-регулятором
+  int controlSignals[4];
+  calculatePID(wheelSpeeds, targetWheelSpeeds, controlSignals);
+
+  // Применение управляющих сигналов к моторам
+  applyMotorControl(controlSignals);
+
+  // Отправка данных на Python с заданной периодичностью
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= CYCLE_TIME) {
+    previousMillis = currentMillis;
+
+    noInterrupts(); // Защита от прерываний
+
+    int lfCount = pulseCount_LEFT_FRONT;
+    int lrCount = pulseCount_LEFT_REAR;
+    int rfCount = pulseCount_RIGHT_FRONT;
+    int rrCount = pulseCount_RIGHT_REAR;
+
+    // Сброс счетчиков для следующего цикла
+    pulseCount_LEFT_FRONT = 0;
+    pulseCount_LEFT_REAR = 0;
+    pulseCount_RIGHT_FRONT = 0;
+    pulseCount_RIGHT_REAR = 0;
+
+    interrupts();
+
+    // Формирование сообщения с помощью функции createMessage()
+    String message = createMessage(lfCount, lrCount, rfCount, rrCount);
+    // Отправка сформированного сообщения
+    Serial.write(message.c_str());
+  }
+}
+
+
+// Функция для управления направлением и скоростью моторов
+void applyMotorControl(const int controlSignals[4]) {
+
+  // Управление направлением вращения
+  digitalWrite(MOTOR_LF, controlSignals[0] > 0 ? LOW : HIGH);
+  digitalWrite(MOTOR_RF, controlSignals[1] > 0 ? LOW : HIGH);
+  digitalWrite(MOTOR_LR, controlSignals[2] > 0 ? LOW : HIGH);
+  digitalWrite(MOTOR_RR, controlSignals[3] > 0 ? LOW : HIGH);
+
+  // Управление скоростью (ШИМ)
+  analogWrite(MOTOR_LF_PWM, (int)constrain(abs(controlSignals[0]), 0, 255));
+  analogWrite(MOTOR_RF_PWM, (int)constrain(abs(controlSignals[1]), 0, 255));
+  analogWrite(MOTOR_LR_PWM, (int)constrain(abs(controlSignals[2]), 0, 255));
+  analogWrite(MOTOR_RR_PWM, (int)constrain(abs(controlSignals[3]), 0, 255));
 }
 
 // ========================================================
-// Функция обработки прерывания для энкодера левого переднего колеса
+// Прерывания для энкодеров 
 // ========================================================
-void wheelSpeed_LEFTF() {
-  // Считываем текущее состояние канала A энкодера
-  byte currentStateA = digitalRead(ENCODER_PIN_A_LEFTF);
 
-  // Обработка переходов канала A (рекомендуется обрабатывать как нарастущий, так и спадающий фронт)
-  if (lastStateA_LEFTF == LOW && currentStateA == HIGH) {
-    // При нарастающем фронте определяем направление по состоянию канала B:
-    // Если B = LOW, считаем, что движение вперёд, иначе назад
-    int stateB = digitalRead(ENCODER_PIN_B_LEFTF);
-    direction_LEFTF = (stateB == LOW);
-  }
-  else if (lastStateA_LEFTF == HIGH && currentStateA == LOW) {
-    // При спадающем фронте также определяем направление:
-    // Если B = HIGH, считаем, что движение вперёд, иначе назад
-    int stateB = digitalRead(ENCODER_PIN_B_LEFTF);
-    direction_LEFTF = (stateB == HIGH);
+// Левый передний
+void wheelSpeed_LEFT_FRONT() {
+  byte currentStateA = digitalRead(ENCODER_PIN_A_LEFT_FRONT);
+
+  // Определение направления по фронту и состоянию канала B
+  if (lastStateA_LEFT_FRONT == LOW && currentStateA == HIGH) {
+    int stateB = digitalRead(ENCODER_PIN_B_LEFT_FRONT);
+    direction_LEFT_FRONT = (stateB == LOW);
+  } else if (lastStateA_LEFT_FRONT == HIGH && currentStateA == LOW) {
+    int stateB = digitalRead(ENCODER_PIN_B_LEFT_FRONT);
+    direction_LEFT_FRONT = (stateB == HIGH);
   }
 
-  // Обновляем предыдущее состояние канала A для отслеживания следующего перехода
-  lastStateA_LEFTF = currentStateA;
+  lastStateA_LEFT_FRONT = currentStateA;
 
-  // Обновляем счётчик импульсов:
-  // Если направление "вперёд" (direction_LEFTF == true) – увеличиваем счётчик,
-  // иначе – уменьшаем (можно использовать абсолютное значение, если важно только количество импульсов)
-  if (direction_LEFTF)
-    pulseCount_LEFTF++;
+  // Обновление счетчика импульсов на основе флага направления
+  if (direction_LEFT_FRONT)
+    pulseCount_LEFT_FRONT++;
   else
-      pulseCount_LEFTF--;
+    pulseCount_LEFT_FRONT--;
+}
+
+// Левый задний
+void wheelSpeed_LEFT_REAR() {
+  byte currentStateA = digitalRead(ENCODER_PIN_A_LEFT_REAR);
+
+  if (lastStateA_LEFT_REAR == LOW && currentStateA == HIGH) {
+    int stateB = digitalRead(ENCODER_PIN_B_LEFT_REAR);
+    direction_LEFT_REAR = (stateB == LOW);
+  } else if (lastStateA_LEFT_REAR == HIGH && currentStateA == LOW) {
+    int stateB = digitalRead(ENCODER_PIN_B_LEFT_REAR);
+    direction_LEFT_REAR = (stateB == HIGH);
+  }
+
+  lastStateA_LEFT_REAR = currentStateA;
+
+  if (direction_LEFT_REAR)
+    pulseCount_LEFT_REAR++;
+  else
+    pulseCount_LEFT_REAR--;
+}
+
+// Правый передний
+void wheelSpeed_RIGHT_FRONT() {
+  byte currentStateA = digitalRead(ENCODER_PIN_A_RIGHT_FRONT);
+
+  if (lastStateA_RIGHT_FRONT == LOW && currentStateA == HIGH) {
+    int stateB = digitalRead(ENCODER_PIN_B_RIGHT_FRONT);
+    direction_RIGHT_FRONT = (stateB == LOW);
+  } else if (lastStateA_RIGHT_FRONT == HIGH && currentStateA == LOW) {
+    int stateB = digitalRead(ENCODER_PIN_B_RIGHT_FRONT);
+    direction_RIGHT_FRONT = (stateB == HIGH);
+  }
+
+  lastStateA_RIGHT_FRONT = currentStateA;
+
+  if (direction_RIGHT_FRONT)
+    pulseCount_RIGHT_FRONT++;
+  else
+    pulseCount_RIGHT_FRONT--;
+}
+
+// Правый задний
+void wheelSpeed_RIGHT_REAR() {
+  byte currentStateA = digitalRead(ENCODER_PIN_A_RIGHT_REAR);
+
+  if (lastStateA_RIGHT_REAR == LOW && currentStateA == HIGH) {
+    int stateB = digitalRead(ENCODER_PIN_B_RIGHT_REAR);
+    direction_RIGHT_REAR = (stateB == LOW);
+  } else if (lastStateA_RIGHT_REAR == HIGH && currentStateA == LOW) {
+    int stateB = digitalRead(ENCODER_PIN_B_RIGHT_REAR);
+    direction_RIGHT_REAR = (stateB == HIGH);
+  }
+
+  lastStateA_RIGHT_REAR = currentStateA;
+
+  if (direction_RIGHT_REAR)
+    pulseCount_RIGHT_REAR++;
+  else
+    pulseCount_RIGHT_REAR--;
+}
+
+// ---------------------- PID-регулятор --------------------------
+void calculatePID(const float current_vel[4], const int requir_vel[4], float control_input[4]) {
+  // Временная переменная для производной составляющей
+  float derivative;
+  float required_vel[4];
+
+  required_vel[0] = (float)requir_vel[0];
+  required_vel[1] = (float)requir_vel[1];
+  required_vel[2] = (float)requir_vel[2];
+  required_vel[3] = (float)requir_vel[3];
+
+  // Цикл по всем 4 колесам
+  for (int i = 0; i < 4; i++) {
+    // Рассчитываем ошибку регулирования
+    float error = required_vel[i] - current_vel[i];
+
+    // Обновляем интегральную составляющую (с насыщением)
+    integral[i] += error;
+    // Ограничение интегральной составляющей (антивиндкап)
+    if (integral[i] > 100) integral[i] = 100;
+    if (integral[i] < -100) integral[i] = -100;
+
+    // Рассчитываем производную составляющую
+    derivative = error - previous_error[i];
+
+    // Сохраняем текущую ошибку для следующей итерации
+    previous_error[i] = error;
+
+    // Вычисляем управляющее воздействие (ПИД-закон)
+    control_input[i] = coefs[i][0] * error +        // Пропорциональная
+                       coefs[i][1] * integral[i] +  // Интегральная
+                       coefs[i][2] * derivative;    // Дифференциальная
+
+    // Ограничение выходного сигнала (по необходимости)
+    if (control_input[i] > 255) control_input[i] = 255;
+    if (control_input[i] < -255) control_input[i] = -255;
+  }
+}
+
+
+// ------------- Расчёт угловых скоростей (рад/с) -----------------
+float calculateWheelSpeeds(float wheelSpeeds[4]) {
+  unsigned long currentTime = millis();
+  float dt = (currentTime - lastTime) / 1000.0f;  // Преобразуем в секунды
+  lastTime = currentTime;
+
+  // Проверка на минимальный интервал времени
+  if (dt <= 0.001f) {  // 1 мс минимальный интервал
+    for (int i = 0; i < 4; i++) wheelSpeeds[i] = 0.0f;
+    return 0;
+  }
+
+  // Коэффициенты преобразования (импульсы -> радианы)
+  const float front_conv = 2.0f * M_PI / ENCODER_PPR_FRONT;
+  const float rear_conv = 2.0f * M_PI / ENCODER_PPR_REAR;
+
+  int currentPulseCount[4] = {
+    pulseCount_LEFT_FRONT,
+    pulseCount_RIGHT_FRONT,
+    pulseCount_RIGHT_REAR,
+    pulseCount_LEFT_REAR
+  };
+
+  // Расчёт для передних колёс (LF, RF)
+  for (int i = 0; i < 2; i++) {
+    int delta = currentPulseCount[i] - pulseCountPrev[i];
+    wheelSpeeds[i] = delta * front_conv / dt;
+    pulseCountPrev[i] = currentPulseCount[i];
+  }
+
+  // Расчёт для задних колёс (LR, RR)
+  for (int i = 2; i < 4; i++) {
+    int delta = currentPulseCount[i] - pulseCountPrev[i];
+    wheelSpeeds[i] = delta * rear_conv / dt;
+    pulseCountPrev[i] = currentPulseCount[i];
+  }
+  return 0;
 }
 ```
 
 **Пояснения к коду**
 
-**Определение пинов и переменных:**   
+Этот код управляет четырьмя мотор-колёсами с обратной связью от энкодеров, используя PID-регуляторы. Управление и задание скоростей происходит через UART.
 
-• Для энкодера левого переднего колеса задаются пины для каналов A и B. 
+**Определение пинов:**   
 
-• Переменные `pulseCount_LEFTF`, `lastStateA_LEFTF` и `direction_LEFTF` объявлены как `volatile`, так как они изменяются в ISR и читаются в основном цикле.
+• Указаны пины для управления мощностью (PWM) и направлением вращения моторов.
 
-**Функция**  `setup()`**:**   
+• Всего 4 мотора: LF (передний левый), RF (передний правый), LR, RR.
 
-• Настраиваются пины как входы. 
+**Настройка энкодеров:**
 
-• Инициализируется последовательный порт для вывода данных.    
+• Для каждого колеса используется энкодер с двумя каналами (A и B), чтобы определить направление вращения.
 
-• Устанавливается начальное состояние канала A.    
+• Переменные pulseCount_* — хранят количество импульсов (т.е. угол поворота).
 
-• Функция `wheelSpeed_LEFTF` привязывается к прерыванию по изменению сигнала на пине A.    
+• direction_* — текущее направление вращения.
 
-• Запоминается стартовое время. 
+**Глобальные переменные:**
+
+• Кол-во импульсов на один оборот колеса (PPR).
+
+• Для PID используются массивы предыдущих ошибок и интегральных значений.
+
+**Настройка setup():**
+
+• Инициализация последовательного порта.
+
+• Настройка пинов как входы/выходы.
+
+• Назначение прерываний для обработки сигналов от энкодеров.
 
 **Основной цикл** `loop()`**:**    
 
-• Каждые 500 мс выводится накопленное значение импульсов.    
+• Чтение команд от Python
 
-• Счётчик импульсов сбрасывается для накопления новых значений в следующем цикле.   
+ - Ожидается строка с двумя значениями: speedRight и speedLeft.
 
-• Здесь же можно произвести расчёты, например, скорости колеса, зная количество импульсов на оборот и геометрию колеса. 
+ - Они конвертируются в команды для всех 4-х колёс (2 на каждую сторону). 
 
-**Функция обработки прерывания (**`wheelSpeed_LEFTF`**):**    
+• Расчёт текущих скоростей на основе импульсов энкодеров (в рад/с).
 
-• Функция вызывается при любом изменении на пине A.    
+• PID-регуляция - вычисляются управляющие воздействия на моторы по ошибке между текущей и целевой скоростью.
 
-• В зависимости от перехода (нарастающий или спадающий фронт) считывается состояние канала B, чтобы определить направление движения.    
+• Применение сигналов на моторы
 
-• По определённому направлению происходит инкремент или декремент счётчика импульсов. Данный вариант кода является более оптимизированным и безопасным для работы с прерываниями на Arduino. Если вам потребуется масштабировать систему на несколько энкодеров, аналогичный шаблон можно применять для остальных модулей.
+ - Направление — через digitalWrite()
+
+ - Скорость — через analogWrite() (ШИМ).
+
+• Отправка данных обратно на Python - каждые 100 мс отправляется состояние колёс.
+
+**Обработка прерываний от энкодеров**
+
+• Определяется направление вращения по каналу B.
+
+• Обновляется счётчик импульсов.
+
+**PID-регулятор**
+
+- Используется классический ПИД:
+
+ - Пропорциональная (P)
+
+ - Интегральная (I)
+
+ - Дифференциальная (D)
+
+**Функция calculateWheelSpeeds**
+
+- Переводит изменение импульсов во времени в угловую скорость.
+
+- Используются разные коэффициенты преобразования для передних и задних колёс.
