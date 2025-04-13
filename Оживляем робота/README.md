@@ -11,35 +11,49 @@ __box305_ardu_firmware1.1.zip__ - архив, необходимый для ра
 ```bool parseReceivedMessage(const String &msg, int &num1, int &num2)``` - Разбирает полученные строки, в переменных num1, num2 будут распознанные значения<br>
 
 ```c++
-#ifndef MESSAGE_FORMATTER_H
+#ifndef MESSAGE_FORMATTER_H // Защита от повторного включения заголовочного файла
 #define MESSAGE_FORMATTER_H
 
-#include <Arduino.h>
+#include <Arduino.h> // Подключение базовой Arduino библиотеки
 
-String createMessage(int a, int b, int c, int d) {
+// Функция для создания строки сообщения из четырех чисел
+// Параметры:
+//   a, b, c, d - целые числа для объединения в строку
+// Возвращает:
+//   Строку вида "a b c d\n" (числа разделены пробелами, в конце перевод строки)
+String createMessage(int a, int b, int c, int d {
   return String(a) + " " + String(b) + " " + String(c) + " " + String(d) + "\n";
 }
 
+// Функция для разбора полученного сообщения
+// Параметры:
+//   msg - строка с сообщением для разбора
+//   num1, num2 - ссылки на переменные для сохранения распарсенных чисел
+// Возвращает:
+//   true - если разбор прошел успешно
+//   false - если сообщение имеет неверный формат
 bool parseReceivedMessage(const String &msg, int &num1, int &num2) {
-  String trimmed = msg;
-  trimmed.trim();
+  String trimmed = msg; // Создаем копию строки
+  trimmed.trim(); // Удаляем пробелы в начале и конце строки
   
-  // Ищем разделитель между числами
+  // Ищем позицию разделителя (пробела) между числами
   int spaceIndex = trimmed.indexOf(' ');
-  if (spaceIndex == -1) {
-    return false;
+  if (spaceIndex == -1) { // Если разделитель не найден
+    return false; // Сообщение имеет неверный формат
   }
-  
-  String strNum1 = trimmed.substring(0, spaceIndex);
-  String strNum2 = trimmed.substring(spaceIndex + 1);
-  
+
+  // Выделяем подстроки с числами
+  String strNum1 = trimmed.substring(0, spaceIndex); // Первое число
+  String strNum2 = trimmed.substring(spaceIndex + 1); // Второе число
+
+  // Преобразуем строки в целые числа
   num1 = strNum1.toInt();
   num2 = strNum2.toInt();
   
-  return true;
-}
+  return true; // Успешный разбор сообщения
+  }
 
-#endif // MESSAGE_FORMATTER_H
+#endif // MESSAGE_FORMATTER_H // Конец защиты от повторного включения
 ```
 ## encoder_one.ino
 
