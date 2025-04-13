@@ -16,20 +16,17 @@ __box305_ardu_firmware1.1.zip__ - архив, необходимый для ра
 
 #include <Arduino.h>
 
-String createMessage(int a, int b, int c, int d)
-{
+String createMessage(int a, int b, int c, int d {
   return String(a) + " " + String(b) + " " + String(c) + " " + String(d) + "\n";
 }
 
-bool parseReceivedMessage(const String &msg, int &num1, int &num2)
- {
+bool parseReceivedMessage(const String &msg, int &num1, int &num2) {
   String trimmed = msg;
   trimmed.trim();
   
   // Ищем разделитель между числами
   int spaceIndex = trimmed.indexOf(' ');
-  if (spaceIndex == -1)
- {
+  if (spaceIndex == -1) {
     return false;
   }
   
